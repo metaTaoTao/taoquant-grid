@@ -140,19 +140,38 @@ class BitgetClient:
         try:
             ccxt_symbol = self._convert_symbol(symbol)
             order = self.exchange.fetch_order(order_id, ccxt_symbol)
+
+            # Handle None values in futures orders
+            filled = order.get('filled') or 0
+            average = order.get('average') or order.get('price') or 0
+
             return {
                 'order_id': str(order.get('id', '')),
                 'status': order.get('status', 'unknown'),
-                'filled': float(order.get('filled', 0)),
-                'average_price': float(order.get('average', 0)),
+                'filled': float(filled),
+                'average_price': float(average),
             }
         except Exception as e:
             print(f"[ERROR] Failed to get order status: {e}")
             return None
 
     def _convert_symbol(self, symbol: str) -> str:
-        """Convert symbol format (BTCUSDT -> BTC/USDT)."""
+        """
+        Convert symbol format for spot or futures.
+
+        For futures (swap), converts BTCUSDT -> BTC/USDT:USDT
+        For spot, converts BTCUSDT -> BTC/USDT
+        """
         if '/' in symbol:
             return symbol
-        # Simple conversion for common pairs
-        return symbol.replace('USDT', '/USDT')
+
+        # Check if using futures/swap market
+        is_futures = self.exchange.options.get('defaultType') == 'swap'
+
+        if is_futures:
+            # Futures perpetual format: BTC/USDT:USDT
+            base_symbol = symbol.replace('USDT', '/USDT')
+            return f"{base_symbol}:USDT"
+        else:
+            # Spot format: BTC/USDT
+            return symbol.replace('USDT', '/USDT')

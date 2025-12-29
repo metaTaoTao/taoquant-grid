@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python run_live.py:*)",
+      "Bash(timeout 5 python:*)",
+      "Bash(python test_dry_run.py:*)",
+      "Bash(python:*)",
+      "Bash(timeout 8 python:*)"
+    ]
+  }
+}

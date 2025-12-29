@@ -17,6 +17,7 @@ from typing import Dict, List
 
 import pandas as pd
 import numpy as np
+from dotenv import load_dotenv
 
 from grid.core import StandardGridV2, GridOrder, GridOrderStatus
 from grid.config import GridConfig
@@ -43,9 +44,13 @@ class GridTrader:
         self.grid_to_order_id: Dict[tuple, str] = {}
         self.shutdown = False
 
+        # Detect market type from client
+        market_type = getattr(client.exchange, 'options', {}).get('defaultType', 'unknown') if hasattr(client, 'exchange') else 'unknown'
+
         print(f"\n{'=' * 80}")
         print(f"TaoQuant Grid Trader - {'DRY RUN' if dry_run else 'LIVE TRADING'}")
         print(f"{'=' * 80}")
+        print(f"Market: {market_type.upper()}")
         print(f"Symbol: {symbol}")
         print(f"Range: ${config.support:,.0f} - ${config.resistance:,.0f}")
         print(f"Balance: ${config.initial_cash:,.2f}")
@@ -260,12 +265,16 @@ class GridTrader:
 
 def main():
     """Main entry point."""
+    # Load environment variables from .env file
+    load_dotenv()
+
     parser = argparse.ArgumentParser(description="TaoQuant Grid Trading")
     parser.add_argument("--support", type=float, default=76000.0, help="Support level")
     parser.add_argument("--resistance", type=float, default=97000.0, help="Resistance level")
     parser.add_argument("--balance", type=float, default=100.0, help="Initial balance")
     parser.add_argument("--leverage", type=float, default=10.0, help="Leverage")
     parser.add_argument("--symbol", type=str, default="BTCUSDT", help="Trading symbol")
+    parser.add_argument("--market-type", type=str, default="swap", choices=["spot", "swap"], help="Market type (spot or swap/futures)")
     parser.add_argument("--dry-run", action="store_true", help="Dry run mode")
 
     args = parser.parse_args()
@@ -277,7 +286,10 @@ def main():
 
     if not all([api_key, api_secret, passphrase]):
         print("\n[ERROR] Missing API credentials!")
-        print("Set environment variables: BITGET_API_KEY, BITGET_API_SECRET, BITGET_PASSPHRASE")
+        print("Please check your .env file contains:")
+        print("  BITGET_API_KEY")
+        print("  BITGET_API_SECRET")
+        print("  BITGET_PASSPHRASE")
         sys.exit(1)
 
     # Create configuration
@@ -290,7 +302,7 @@ def main():
     config.validate()
 
     # Create client
-    client = BitgetClient(api_key, api_secret, passphrase)
+    client = BitgetClient(api_key, api_secret, passphrase, market_type=args.market_type)
 
     # Create trader
     trader = GridTrader(config, client, symbol=args.symbol, dry_run=args.dry_run)
